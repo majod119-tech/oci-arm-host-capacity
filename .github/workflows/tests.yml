@@ -19,35 +19,47 @@ jobs:
       - name: Install dependencies
         run: composer install --no-dev
         
-      - name: Prepare Secret Key
+      - name: Auto-Fix Secrets & Fetch Image ID 🪄
         run: |
-          cat << 'EOF' > ./key.pem
-          ${{ secrets.OCI_KEY_FILE }}
-          EOF
+          # تنظيف المفتاح من أي أسطر وهمية بسبب الجوال
+          echo "${{ secrets.OCI_KEY_FILE }}" | tr -d '\r' > ./key.pem
           chmod 600 ./key.pem
           
-      - name: Auto-Fetch Ubuntu Image ID 🪄
-        run: |
+          # تنظيف المعرفات من أي مسافات مخفية
+          CLEAN_USER=$(echo "${{ secrets.OCI_USER_ID }}" | tr -d ' ')
+          CLEAN_TENANCY=$(echo "${{ secrets.OCI_TENANCY_ID }}" | tr -d ' ')
+          CLEAN_FINGERPRINT=$(echo "${{ secrets.OCI_FINGERPRINT }}" | tr -d ' ')
+          CLEAN_REGION=$(echo "${{ secrets.OCI_REGION }}" | tr -d ' ')
+          
+          # حفظ المعرفات النظيفة للسكربت
+          echo "CLEAN_USER=$CLEAN_USER" >> $GITHUB_ENV
+          echo "CLEAN_TENANCY=$CLEAN_TENANCY" >> $GITHUB_ENV
+          echo "CLEAN_FINGERPRINT=$CLEAN_FINGERPRINT" >> $GITHUB_ENV
+          echo "CLEAN_REGION=$CLEAN_REGION" >> $GITHUB_ENV
+          
+          # تجهيز الاتصال
           pip install oci-cli > /dev/null 2>&1
           mkdir -p ~/.oci
           cat << EOF > ~/.oci/config
           [DEFAULT]
-          user=${{ secrets.OCI_USER_ID }}
-          fingerprint=${{ secrets.OCI_FINGERPRINT }}
-          tenancy=${{ secrets.OCI_TENANCY_ID }}
-          region=${{ secrets.OCI_REGION }}
+          user=$CLEAN_USER
+          fingerprint=$CLEAN_FINGERPRINT
+          tenancy=$CLEAN_TENANCY
+          region=$CLEAN_REGION
           key_file=$(pwd)/key.pem
           EOF
-          IMAGE_ID=$(oci compute image list --compartment-id ${{ secrets.OCI_TENANCY_ID }} --operating-system "Canonical Ubuntu" --operating-system-version "24.04" --shape "VM.Standard.A1.Flex" --query "data[0].id" --raw-output)
+          
+          # سحب رقم الأوبونتو
+          IMAGE_ID=$(oci compute image list --compartment-id $CLEAN_TENANCY --operating-system "Canonical Ubuntu" --operating-system-version "24.04" --shape "VM.Standard.A1.Flex" --query "data[0].id" --raw-output)
           echo "OCI_IMAGE_ID=$IMAGE_ID" >> $GITHUB_ENV
           
       - name: Start Sniping 🎯
         run: php index.php
         env:
-          OCI_REGION: ${{ secrets.OCI_REGION }}
-          OCI_USER_ID: ${{ secrets.OCI_USER_ID }}
-          OCI_TENANCY_ID: ${{ secrets.OCI_TENANCY_ID }}
-          OCI_KEY_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_REGION: ${{ env.CLEAN_REGION }}
+          OCI_USER_ID: ${{ env.CLEAN_USER }}
+          OCI_TENANCY_ID: ${{ env.CLEAN_TENANCY }}
+          OCI_KEY_FINGERPRINT: ${{ env.CLEAN_FINGERPRINT }}
           OCI_PRIVATE_KEY_FILENAME: ./key.pem
           OCI_SUBNET_ID: ${{ secrets.OCI_SUBNET_ID }}
           OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
