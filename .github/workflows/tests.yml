@@ -24,6 +24,22 @@ jobs:
           cat << 'EOF' > ./key.pem
           ${{ secrets.OCI_KEY_FILE }}
           EOF
+          chmod 600 ./key.pem
+          
+      - name: Auto-Fetch Ubuntu Image ID 🪄
+        run: |
+          pip install oci-cli > /dev/null 2>&1
+          mkdir -p ~/.oci
+          cat << EOF > ~/.oci/config
+          [DEFAULT]
+          user=${{ secrets.OCI_USER_ID }}
+          fingerprint=${{ secrets.OCI_FINGERPRINT }}
+          tenancy=${{ secrets.OCI_TENANCY_ID }}
+          region=${{ secrets.OCI_REGION }}
+          key_file=$(pwd)/key.pem
+          EOF
+          IMAGE_ID=$(oci compute image list --compartment-id ${{ secrets.OCI_TENANCY_ID }} --operating-system "Canonical Ubuntu" --operating-system-version "24.04" --shape "VM.Standard.A1.Flex" --query "data[0].id" --raw-output)
+          echo "OCI_IMAGE_ID=$IMAGE_ID" >> $GITHUB_ENV
           
       - name: Start Sniping 🎯
         run: php index.php
@@ -35,7 +51,7 @@ jobs:
           OCI_PRIVATE_KEY_FILENAME: ./key.pem
           OCI_SUBNET_ID: ${{ secrets.OCI_SUBNET_ID }}
           OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
-          OCI_IMAGE_ID: ${{ secrets.OCI_IMAGE_ID }}
+          OCI_IMAGE_ID: ${{ env.OCI_IMAGE_ID }}
           OCI_OCPUS: 4
           OCI_MEMORY_IN_GBS: 24
           OCI_SHAPE: VM.Standard.A1.Flex
