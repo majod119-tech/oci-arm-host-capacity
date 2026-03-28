@@ -35,6 +35,7 @@ jobs:
           OCI_PRIVATE_KEY_FILENAME: ./key.pem
           OCI_SUBNET_ID: ${{ secrets.OCI_SUBNET_ID }}
           OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
+          OCI_IMAGE_ID: ${{ secrets.OCI_IMAGE_ID }}
           OCI_OCPUS: 4
           OCI_MEMORY_IN_GBS: 24
           OCI_SHAPE: VM.Standard.A1.Flex
